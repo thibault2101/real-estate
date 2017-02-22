@@ -3,20 +3,6 @@ var express = require( 'express' );
 var request = require( 'request' );
 var cheerio = require( 'cheerio' );
 
-// in order to replace the € and m² present in the data by nothing -> data=int
-function Remplace( expr, a, b ) {
-    var i = 0
-    while ( i != -1 ) {
-        i = expr.indexOf( a, i );
-        if ( i >= 0 ) {
-            expr = expr.substring( 0, i ) + b + expr.substring( i + a.length );
-            i += b.length;
-        }
-    }
-    return expr
-}
-
-
 //creating a new express server
 var app = express();
 
@@ -26,66 +12,101 @@ app.set( 'view engine', 'ejs' );
 //setting the 'assets' directory as our static assets dir (css, js, img, etc...)
 app.use( '/assets', express.static( 'assets' ) );
 
-function FindUrl() {
-    var request = require( 'request' );
-    request( 'https://www.leboncoin.fr/ventes_immobilieres/1087235164.htm?ca=12_s', function ( error, response, body ) {
-        if ( !error && response.statusCode == 200 ) {
-            var $ = cheerio.load( body );
+var estimation = {
+    Title: "Estimation du bien",
+    Averageprice: 0,
+    Verdict: "",
+}
+var lbcData = {
+    price: 0,
+    city: 0,
+    type: 0,
+    surface: 0,
+}
+var med = {
+    medprice: 0,
+}
 
-            var span = $( 'section.properties span.value' ); // stock le tableaux ayant les data intéressantes
-            //for ( var i = 0; i < span.length; i++ ) {
-            //console.log( span[i].children[0].data ); // recupère les data utiles 
+app.get( '/', function ( req, res ) {
+    if ( req.query.lienLBC ) {
+        request( req.query.lienLBC, function ( error, response, body ) {
 
-            // price - signe € to be a "int"
-            var price = span[0].children[0].data;
-            price = parseInt( Remplace( Remplace( price, "€", "" ), " ", "" ) );
+            if ( !error && response.statusCode == 200 ) {
+                const $ = cheerio.load( body )
+                const lbcDataArray = $( 'section.properties span.value' )
+                lbcData = {
+                    price: parseInt( $( lbcDataArray.get( 0 ) ).text().replace( /\s/g, '' ), 10 ),
+                    city: $( lbcDataArray.get( 1 ) ).text().trim().toLowerCase().replace( /\_|\s/g, '-' ),
+                    type: $( lbcDataArray.get( 2 ) ).text().trim().toLowerCase(),
+                    surface: parseInt( $( lbcDataArray.get( 4 ) ).text().replace( /\s/g, '' ), 10 )
+                }
+                med.medprice = lbcData.price / lbcData.surface
 
-            // surface-m² to be a "int"
-            var surface = span[5].children[0].data;
-            surface = parseInt( Remplace( surface, " m2", "" ) );
-
-            // city and postal code
-            var citycode = span[1].children[0].data;
-            city = citycode.split( ' ' )[0];
-            code = citycode.split( ' ' )[1];
-            console.log( "city: " + city );
-            console.log( "code: " + code );
-
-            // calcul of pice per m² in order to use it 
-            var pricem2 = price / surface;
-            console.log( "price: " + price );
-            console.log( "surface: " + surface );
-            console.log( "price per m² is : " + pricem2 );
-            //}
-
-
-        };
-    }
-    )
-};
-
-function CompareDate() {
-
-    var request = require( 'request' );
-    request( 'https://www.meilleursagents.com/prix-immobilier/' + city + "-" + code, function ( error, response, body ) {
-        if ( !error && response.statusCode == 200 ) {
-            var $ = cheerio.load( body );
+            }
+            else { console.log( error ) }
         }
+        )
+    }
+
+    var url = 'https://www.meilleursagents.com/prix-immobilier/' + lbcData.city.toLowerCase
+
+    request( url, function ( error, response, body ) {
+        if ( !error && response.statusCode == 200 ) {
+            const $ = cheerio.load( body );
+            var averageprice = "";
+            var a = $( this )
+            if ( type == "Appartement" ) {
+                if ( a.children()[0].next.data == "Prix m² appartement" ) {
+                    averageprice = a.next().next().text();
+                    averageprice = averageprice.substring( 14, 19 );
+                    averagePrice = averagePrice.split( " " );
+                    estimation.Averageprice = averageprice[0] + averageprice[1];
+                }
+            }
+            if ( type == "Maison" ) {
+                if ( a.children()[0].next.data == "Prix m² maison" ) {
+                    averageprice = a.next().next().text();
+                    averageprice = averageprice.substring( 14, 19 );
+                    averagePrice = averagePrice.split( " " );
+                    estimation.Averageprice = averageprice[0] + averageprice[1];
+                }
+            }
+        }
+    })
+
+
+    if ( estimation.Averageprice < med.medprice ) {
+        estimation.Verdict = "the price is too expensive, don't be a fool !";
+    }
+    else if ( estimation.Averageprice == med.medprice ) {
+        estimation.Verdict = "the price is fair";
+
+    }
+    else {
+        estimation.Verdict = "the price is smaller than expected, be carefull";
+    }
+    //}*/
+    res.render( 'home', {
+
+        message: lbcData.price,
+        message2: lbcData.surface,
+        message3: lbcData.city,
+        message4: lbcData.type,
+        message5: med.medprice,
+        message6: estimation.Averageprice,
+        message7: estimation.Verdict,
+    });
+});
+
+
+//makes the server respond to the '/' route and serving the 'home.ejs' template in the 'views' directory
 
 
 
-        //makes the server respond to the '/' route and serving the 'home.ejs' template in the 'views' directory
-        app.get( '/', function ( req, res ) {
-            FindUrl();
-            res.render( 'home', {
-                message: FindUrl
-            });
-        });
 
+//launch the server on the 3000 port
+app.listen( 3000, function () {
+    console.log( 'App listening on port 3000!' );
+});
 
-
-        //launch the server on the 3000 port
-        app.listen( 3000, function () {
-            console.log( 'App listening on port 3000!' );
-        });
 

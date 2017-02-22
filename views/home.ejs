@@ -6,11 +6,39 @@
     <link rel="stylesheet" href="/assets/css/style.css" />
 </head>
 
-<body>
-    <input type="text" name="URLLBC">
-    <button type="submit">ok</button></br>
-        <%= message %>
+<body>    
+<h1>Real estate price comparison </h1>
+
+    <p>Please enter the "Leboncoin" link : 
+    <p>click 2 times on the button </p>
+    <form action="/" method="GET">
+     <input type="text" name="lienLBC">
+     <button type="submit">Compare</button>
+    </form>
+    </p>
+    <p>Price on LeBonCoin : 
+        <%= message %> € 
+    </p>
+    <p>Type : 
+        <%= message4 %>  
+    </p>
+    <p>Surface:
+        <%= message2 %> m2 
+    </p>
+   
+    <p>City : 
+        <%= message3 %>
+    </p>
     
+    <p>Price m2 : 
+        <%= message5 %> €
+    </p>
+    <p>In this city the medium price of the m² is : 
+        <%= message6 %>  €
+    </p>
+    <p>
+        <%= message7 %>
+    </p>
 </body>
 
 </html>
